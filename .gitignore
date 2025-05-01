@@ -1,0 +1,10 @@
+/build
+__pycache__/
+.vscode
+/code2pdf.egg-info
+/dist
+/installers
+/Output
+venv
+Dockerfile
+code2pdf.spec
