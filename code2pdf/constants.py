@@ -5,7 +5,7 @@ import tempfile
 EXCLUDE_DIRS = {
     '.git', 'node_modules', '__pycache__', 'venv', '.venv',
     '.mypy_cache', '.pytest_cache', '.idea', '.vscode', 'env', 
-    'dist', 'build', '*.egg-info', 'installlers', 
+    'dist', 'build', '*.egg-info', 'installers', 
     'out', 'tmp', 'temp', 'cache', 'logs', '.tox', '.coverage', 'dist', 
     'coverage.xml', 'htmlcov', 'pytest_cache', 'code2pdf.egg-info'
 }

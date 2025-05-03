@@ -1,5 +1,5 @@
 import argparse
-from constants import DEFAULT_OUTPUT
+from .constants import DEFAULT_OUTPUT
 
 # Creates and returns the argument parser for the CLI.
 # Encapsulates all argument definitions for modularity and reuse.

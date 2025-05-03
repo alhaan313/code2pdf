@@ -1,25 +1,25 @@
 import argparse
 import os
 
-from file_utils import (
+from .file_utils import (
     load_ignore_spec,
     format_path,
     get_language,
     generate_markdown,
 )
-from pdf_utils import (
+from .pdf_utils import (
     check_dependencies,
     convert_to_pdf_pandoc,
     markdown_to_pdf,
     md_to_pdf,
 )
-from constants import (
+from .constants import (
     EXCLUDE_DIRS,
     EXCLUDE_FILES,
     DEFAULT_OUTPUT,
     TEMP_MD,
 )
-from parser_utils import create_parser
+from .parser_utils import create_parser
 
 def main():
     # Main entry point: parses arguments, generates markdown, and converts to PDF.

@@ -1,7 +1,7 @@
 import os
 import pathspec
 from datetime import datetime
-from constants import EXCLUDE_DIRS, EXCLUDE_FILES, TEMP_MD
+from .constants import EXCLUDE_DIRS, EXCLUDE_FILES, TEMP_MD
 
 # Loads ignore patterns from .gitignore or .code2pdfignore if present.
 # Returns a pathspec object or None if no ignore file is found.
