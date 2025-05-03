@@ -1,0 +1,177 @@
+import os
+import pathspec
+from datetime import datetime
+from constants import EXCLUDE_DIRS, EXCLUDE_FILES, TEMP_MD
+
+# Loads ignore patterns from .gitignore or .code2pdfignore if present.
+# Returns a pathspec object or None if no ignore file is found.
+def load_ignore_spec(input_dir):
+    ignore_files = ['.gitignore', '.code2pdfignore']
+    for ignore_file in ignore_files:
+        ignore_path = os.path.join(input_dir, ignore_file)
+        if os.path.exists(ignore_path):
+            with open(ignore_path, 'r') as f:
+                return pathspec.PathSpec.from_lines('gitwildmatch', f.readlines())
+    return None
+
+# Formats a file path for markdown display, optionally with backticks.
+# Converts backslashes to slashes and escapes underscores if needed.
+def format_path(path, backtick=True, escape_underscore=True):
+    # Only escape underscores if requested (default True)
+    path = path.replace('\\', '/')
+    if escape_underscore:
+        path = path.replace('_', r'\_')
+    return f"`{path}`" if backtick else path
+
+# Returns the programming language for a given filename based on its extension.
+# Used for syntax highlighting in markdown code blocks.
+def get_language(filename):
+    ext = os.path.splitext(filename)[1].lower()
+    language_map = {
+        '.py': 'python',
+        '.js': 'javascript',
+        '.java': 'java',
+        '.cpp': 'cpp',
+        '.c': 'c',
+        '.html': 'html',
+        '.css': 'css',
+        '.md': 'markdown',
+        '.json': 'json',
+        '.xml': 'xml',
+        '.sh': 'bash',
+        '.bat': 'batch',
+        '.txt': 'plaintext',
+    }
+    return language_map.get(ext, 'plaintext')
+
+# Compute codebase statistics (file count, line count, languages)
+def compute_codebase_stats(input_dir, ignore_spec=None):
+    stats = {
+        "total_files": 0,
+        "total_lines": 0,
+        "languages": {},
+    }
+    for root, dirs, files in os.walk(input_dir):
+        dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
+        files[:] = [f for f in files if f not in EXCLUDE_FILES]
+        if ignore_spec:
+            files = [f for f in files if not ignore_spec.match_file(os.path.join(root, f))]
+        for file in files:
+            ext = os.path.splitext(file)[1].lower()
+            lang = get_language(file)
+            file_path = os.path.join(root, file)
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+            except Exception:
+                continue
+            stats["total_files"] += 1
+            stats["total_lines"] += len(lines)
+            stats["languages"][lang] = stats["languages"].get(lang, 0) + 1
+    return stats
+
+# Generate directory tree as markdown
+def get_directory_tree(input_dir, ignore_spec=None, prefix=""):
+    tree_lines = []
+    for root, dirs, files in os.walk(input_dir):
+        level = root.replace(input_dir, '').count(os.sep)
+        indent = '    ' * level
+        subdir = os.path.basename(root)
+        if level == 0:
+            tree_lines.append(f"{subdir}/")
+        else:
+            tree_lines.append(f"{indent}├── {subdir}/")
+        dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
+        files[:] = [f for f in files if f not in EXCLUDE_FILES]
+        if ignore_spec:
+            files = [f for f in files if not ignore_spec.match_file(os.path.join(root, f))]
+        for f in files:
+            tree_lines.append(f"{indent}    └── {f}")
+    return "\n".join(tree_lines)
+
+# Walks the input directory and generates a markdown file with code listings.
+# Applies ignore rules, file filters, and formats each file as a markdown section.
+def generate_markdown(input_dir, title, author, out_file=TEMP_MD, 
+                      skip_empty=False, ignore_spec=None,
+                      include_exts=None, exclude_exts=None, 
+                      include_names=None, exclude_names=None,
+                      project_desc=None, tool_version="0.2"):
+    stats = compute_codebase_stats(input_dir, ignore_spec)
+    dir_tree = get_directory_tree(input_dir, ignore_spec)
+    with open(out_file, 'w', encoding='utf-8') as md_file:
+        md_file.write(f"""---
+title: "{title}"
+author: "{author}"
+date: "{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+titlepage: true
+titlepage-color: "003366"
+titlepage-text-color: "FFFFFF"
+titlepage-rule-color: "FFFFFF"
+titlepage-rule-height: 2
+logo: ""
+toc: true
+toc-own-page: true
+toc-depth: 3
+colorlinks: true
+linkcolor: blue
+fontsize: 12pt
+geometry: margin=1in
+mainfont: TeX Gyre Pagella
+monofont: Fira Mono
+...
+
+""")  # <-- Ensure a blank line after the YAML block
+
+        md_file.write(f"""# Project Overview
+
+{project_desc or "No project description provided."}
+
+## Codebase Statistics
+
+- **Total files:** {stats['total_files']}
+- **Total lines of code:** {stats['total_lines']}
+- **Languages used:** {', '.join(f"{lang} ({count})" for lang, count in stats['languages'].items())}
+- **Generated by:** code2pdf v{tool_version}
+
+## Directory Structure
+
+```
+{dir_tree}
+```
+
+""")
+
+        for root, dirs, files in os.walk(input_dir):
+            dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
+            files[:] = [f for f in files if f not in EXCLUDE_FILES]
+
+            if ignore_spec:
+                files = [f for f in files if not ignore_spec.match_file(os.path.join(root, f))]
+
+            for file in files:
+                ext = os.path.splitext(file)[1].lower()
+                if include_exts and ext not in include_exts:
+                    continue
+                if exclude_exts and ext in exclude_exts:
+                    continue
+                if include_names and file not in include_names:
+                    continue
+                if exclude_names and file in exclude_names:
+                    continue
+
+                file_path = os.path.join(root, file)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                except UnicodeDecodeError:
+                    # Skip files that can't be decoded as UTF-8
+                    continue
+
+                if skip_empty and not content.strip():
+                    continue
+
+                # Do NOT escape underscores for code block headers
+                md_file.write(f"## {format_path(file_path, backtick=True, escape_underscore=False)}\n")
+                md_file.write(f"```{get_language(file)}\n")
+                md_file.write(content)
+                md_file.write("\n```\n\n")
